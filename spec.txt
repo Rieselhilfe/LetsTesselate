@@ -2,16 +2,16 @@ Ein Kern besteht aus x*y Zellen
 Eine Zelle besteht aus:
     Command | Arg1 | Arg2
 Args haben Typen.
-Arg1 ist eine lexp, also ein Ausdruck der zu den Typen Addr, Num oder Cmd evaluiert.
+Arg1 ist eine lexp, also ein Ausdruck der zu den Typen Num oder Cmd evaluiert.
 Arg2 ist eine rexp, also ein Ausdruck, der zu dem Typ Addr evaluiert.
 Die Argumente sind immer nur Zahlen, der Unterschied zw den Typen ist nur, wie sie interpretiert werden:
     Wenn man nichts davor schreibt ist es einfach eine Zahl.
-    @ macht es zu einer Addresse im derzeitigen Core.
-    # macht es zu der Zahl an Stelle 1 an einer Addresse.
-    ' macht es zu der Zahl an Stelle 2 an einer Addresse.
-    / macht es zu dem vollständigen Command an einer Addresse.
-    ^ macht es zu einer Addresse im oberen Core.
-    > macht es zu einer Addresse im rechten Core.
-    v macht es zu einer Addresse im unteren Core.
-    < macht es zu einer Addresse im linken Core.
+    @ (NUM->ADDR) macht es zu einer Addresse im derzeitigen Core.
+    ^ (NUM->ADDR) macht es zu einer Addresse im oberen Core.
+    > (NUM->ADDR) macht es zu einer Addresse im rechten Core.
+    v (NUM->ADDR) macht es zu einer Addresse im unteren Core.
+    < (NUM->ADDR) macht es zu einer Addresse im linken Core. 
+    # (ADDR->NUM) macht es zu der Zahl an Stelle 1 an einer Addresse.
+    ' (ADDR->NUM) macht es zu der Zahl an Stelle 2 an einer Addresse.
+    / (ADDR->CMD) macht es zu dem vollständigen Command an einer Addresse.
 Der Kern besitzt einen pc, der durch jump-befehle manipuliert werden kann.
