@@ -4,6 +4,7 @@ import (
     "fmt"
     // "strings"
     "strconv"
+    "time"
 )
 
 const NOP,NEG,ADD,SUB,MUL,DIV,MOV,JMP = 1,2,3,4,5,6,7,8
@@ -40,7 +41,7 @@ type core struct { //one core, containing a program out of commands
     pc int
 }
 
-func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, instr cmd, val int) { //evaluates an l_exp
+func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, instr cmd, val int) { //evaluates prefixes
     val_type = "ARG"
     val = exp.val
     for _, p := range exp.prefs {
@@ -105,56 +106,56 @@ func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, 
 }
 
 func (c core) tick(new_b *board, b *board) core { //executes the current instruction
+    r_val := c.code[c.pc].args[1].val
     switch instr := c.code[c.pc]; instr.id {
     case NOP:
         return c
     case NEG:
-        if val_type,arg_num,core_index,_,cmd_index := c.eval_arg(instr.args[1], b); val_type=="ARG" {
-            if b.cores[core_index].code[cmd_index].args[arg_num].val > 0 {
-                new_b.cores[core_index].code[cmd_index].args[arg_num].val = 0
+        if val_type,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type=="ARG" {
+            if b.cores[core_index].code[r_val].args[arg_num].val > 0 {
+                new_b.cores[core_index].code[r_val].args[arg_num].val = 0
             } else {
-                new_b.cores[core_index].code[cmd_index].args[arg_num].val = 1
+                new_b.cores[core_index].code[r_val].args[arg_num].val = 1
             }
         } else {fmt.Println("NEG arg2 needs to be of type ARG in line",c.pc); return c}
     case ADD:
-        fmt.Println(instr.args)
-        if val_type2,arg_num,core_index,_,cmd_index := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
             if val_type1,_,_,_,to_add := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[cmd_index].args[arg_num].val += to_add
+                new_b.cores[core_index].code[r_val].args[arg_num].val += to_add
             } else {fmt.Println("ADD arg1 needs to be of type ARG in line",c.pc); return c}
         } else {fmt.Println("ADD arg2 needs to be of type ARG in line",c.pc); return c}
     case SUB:
-        if val_type2,arg_num,core_index,_,cmd_index := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
             if val_type1,_,_,_,to_sub := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[cmd_index].args[arg_num].val -= to_sub
+                new_b.cores[core_index].code[r_val].args[arg_num].val -= to_sub
             } else {fmt.Println("SUB arg1 needs to be of type ARG in line",c.pc); return c}
         } else {fmt.Println("SUB arg2 needs to be of type ARG in line",c.pc); return c}
     case MUL:
-        if val_type2,arg_num,core_index,_,cmd_index := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
             if val_type1,_,_,_,to_mul := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[cmd_index].args[arg_num].val *= to_mul
+                new_b.cores[core_index].code[r_val].args[arg_num].val *= to_mul
             } else {fmt.Println("MUL arg1 needs to be of type ARG in line",c.pc); return c}
         } else {fmt.Println("MUL arg2 needs to be of type ARG in line",c.pc); return c}
     case DIV:
-        if val_type2,arg_num,core_index,_,cmd_index := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
             if val_type1,_,_,_,to_div := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[cmd_index].args[arg_num].val /= to_div
+                new_b.cores[core_index].code[r_val].args[arg_num].val /= to_div
             } else {fmt.Println("DIV arg1 needs to be of type ARG in line",c.pc); return c}
         } else {fmt.Println("DIV arg2 needs to be of type ARG in line",c.pc); return c}
     case MOV:
-        if val_type2,arg_num,core_index,_,cmd_index := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
             if val_type1,_,_,_,to_mov:= c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[cmd_index].args[arg_num].val = to_mov
+                new_b.cores[core_index].code[r_val].args[arg_num].val = to_mov
             } else {fmt.Println("Can't MOV command to arg in line",c.pc); return c}
         } else {
             if val_type1,_,_,to_mov,_:= c.eval_arg(instr.args[0], b); val_type1=="CMD" {
-                new_b.cores[core_index].code[cmd_index] = to_mov
+                new_b.cores[core_index].code[r_val] = to_mov
             } else {fmt.Println("Can't MOV arg to command in line",c.pc); return c}
         }
     case JMP:
-        if val_type2,arg_num,core_index,_,cmd_index := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
             if val_type1,_,_,_,to_jmp:= c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                if new_b.cores[core_index].code[cmd_index].args[arg_num].val!=0 {c.pc = to_jmp-1}
+                if new_b.cores[core_index].code[r_val].args[arg_num].val!=0 {c.pc = to_jmp-1}
             } else {fmt.Println("can't jump (set pc to) a command"); return c}
         } else {fmt.Println("can't read command as condition for jump"); return c}
     default:
@@ -173,6 +174,7 @@ func (b *board) run() { //lets every core execute it's next instruction
     new_b := *b
     for i, c := range b.cores {
         new_b.cores[i] = c.tick(&new_b,b)
+        time.Sleep(500*time.Millisecond)
     }
     *b = new_b
 }
