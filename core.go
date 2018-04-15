@@ -2,13 +2,28 @@ package main
 
 import (
     "fmt"
-    // "strings"
+    "strings"
     "strconv"
     "time"
+    "encoding/gob"
+    "bytes"
+    "io/ioutil"
+    "os"
 )
 
-const NOP,NEG,ADD,SUB,MUL,DIV,MOV,JMP = 1,2,3,4,5,6,7,8
+const NOP,NEG,ADD,SUB,MUL,DIV,MOV,JMP = 0,1,2,3,4,5,6,7
 const AAT,NR1,NR2,UPP,RGT,DWN,LFT = '@','\'','"','^','>','v','<'
+
+func Clone(a,b interface{}) {
+        buff := new(bytes.Buffer)
+        enc := gob.NewEncoder(buff)
+        dec := gob.NewDecoder(buff)
+        err := enc.Encode(a)
+        if err!=nil {fmt.Println(err)}
+        err = dec.Decode(b)
+        if err!=nil {fmt.Println(err)}
+}
+
 
 var cmd_ids = map[string]byte{
     "NOP": NOP,
@@ -22,81 +37,72 @@ var cmd_ids = map[string]byte{
 }
 
 type arg struct { //an arg, consisting out of prefixes and a numeric value
-    prefs string
-    val int
+    Prefs string
+    Val int
 }
 
 type cmd struct { //a single command with a name and two arguments
-    id byte
-    args []arg
+    Id byte
+    Args []arg
 }
 
 type core struct { //one core, containing a program out of commands
-    code []cmd
-    this int
-    up int
-    right int
-    down int
-    left int
-    pc int
+    Code []cmd
+    Pc int
+    This int
+    Up int
+    Right int
+    Down int
+    Left int
 }
 
 func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, instr cmd, val int) { //evaluates prefixes
     val_type = "ARG"
-    val = exp.val
-    for _, p := range exp.prefs {
+    val = exp.Val
+    for _, p := range exp.Prefs {
         if val_type == "ARG" {
-            arg = -1
             switch p {
             case AAT:
-                addr = c.this
-                instr = b.cores[addr].code[val]
+                addr = c.This
+                instr = b.Cores[addr].Code[val]
                 val_type = "CMD"
             case UPP:
-                addr = c.up
-                instr = b.cores[addr].code[val]
+                addr = c.Up
+                instr = b.Cores[addr].Code[val]
                 val_type = "CMD"
             case RGT:
-                addr = c.right
-                instr = b.cores[addr].code[val]
+                addr = c.Right
+                instr = b.Cores[addr].Code[val]
                 val_type = "CMD"
             case DWN:
-                addr = c.down
-                instr = b.cores[addr].code[val]
+                addr = c.Down
+                instr = b.Cores[addr].Code[val]
                 val_type = "CMD"
             case LFT:
-                addr = c.left
-                instr = b.cores[addr].code[val]
+                addr = c.Left
+                instr = b.Cores[addr].Code[val]
                 val_type = "CMD"
             default:
-                panic("warning: pref"+strconv.QuoteRune(p)+"called with type ARG")
+                //panic("warning: pref"+strconv.QuoteRune(p)+"called with type ARG")
+                return
             }
         } else if val_type == "CMD" {
             switch p {
             case NR1:
                 if addr>=0 {
-                    val = b.cores[addr].code[val].args[0].val
+                    val = b.Cores[addr].Code[val].Args[0].Val
                     arg = 0
                     val_type = "ARG"
-                } else {
-                    val = -1
-                    arg = -1
-                    val_type = "ARG"
-                    return
-                }
+                } else {panic("addr under 0")}
             case NR2:
                 if addr>=0 {
-                    val = b.cores[addr].code[val].args[1].val
+                    val = b.Cores[addr].Code[val].Args[1].Val
                     arg = 1
                     val_type = "ARG"
-                } else {
-                    val = -1
-                    arg = -1
-                    val_type = "ARG"
-                    return
-                }
+                } else {panic("addr under 0")}
             default:
-                panic("warning: pref"+strconv.QuoteRune(p)+"called with false type ADDR")
+                //panic("warning: pref"+strconv.QuoteRune(p)+"called with false type ADDR")
+                return
             }
         } else {
             panic("can't call any pref on"+strconv.QuoteRune(p))
@@ -105,98 +111,128 @@ func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, 
     return
 }
 
-func (c core) tick(new_b *board, b *board) core { //executes the current instruction
-    r_val := c.code[c.pc].args[1].val
-    switch instr := c.code[c.pc]; instr.id {
+func (c core) tick(new_b *board, b *board) { //executes the current instruction
+    r_val := c.Code[c.Pc].Args[1].Val
+    switch instr := c.Code[c.Pc]; instr.Id {
     case NOP:
-        return c
     case NEG:
-        if val_type,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type=="ARG" {
-            if b.cores[core_index].code[r_val].args[arg_num].val > 0 {
-                new_b.cores[core_index].code[r_val].args[arg_num].val = 0
+        if val_type,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type=="ARG" {
+            if b.Cores[core_index].Code[r_val].Args[arg_num].Val > 0 {
+                new_b.Cores[core_index].Code[r_val].Args[arg_num].Val = 0
             } else {
-                new_b.cores[core_index].code[r_val].args[arg_num].val = 1
+                new_b.Cores[core_index].Code[r_val].Args[arg_num].Val = 1
             }
-        } else {fmt.Println("NEG arg2 needs to be of type ARG in line",c.pc); return c}
+        } else {fmt.Println("NEG arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case ADD:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_add := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[r_val].args[arg_num].val += to_add
-            } else {fmt.Println("ADD arg1 needs to be of type ARG in line",c.pc); return c}
-        } else {fmt.Println("ADD arg2 needs to be of type ARG in line",c.pc); return c}
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_add := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+                new_b.Cores[core_index].Code[r_val].Args[arg_num].Val += to_add
+            } else {fmt.Println("ADD arg1 needs to be of type ARG in line",c.Pc); panic("")}
+        } else {fmt.Println("ADD arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case SUB:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_sub := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[r_val].args[arg_num].val -= to_sub
-            } else {fmt.Println("SUB arg1 needs to be of type ARG in line",c.pc); return c}
-        } else {fmt.Println("SUB arg2 needs to be of type ARG in line",c.pc); return c}
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_sub := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+                new_b.Cores[core_index].Code[r_val].Args[arg_num].Val -= to_sub
+            } else {fmt.Println("SUB arg1 needs to be of type ARG in line",c.Pc); panic("")}
+        } else {fmt.Println("SUB arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case MUL:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_mul := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[r_val].args[arg_num].val *= to_mul
-            } else {fmt.Println("MUL arg1 needs to be of type ARG in line",c.pc); return c}
-        } else {fmt.Println("MUL arg2 needs to be of type ARG in line",c.pc); return c}
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_mul := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+                new_b.Cores[core_index].Code[r_val].Args[arg_num].Val *= to_mul
+            } else {fmt.Println("MUL arg1 needs to be of type ARG in line",c.Pc); panic("")}
+        } else {fmt.Println("MUL arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case DIV:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_div := c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[r_val].args[arg_num].val /= to_div
-            } else {fmt.Println("DIV arg1 needs to be of type ARG in line",c.pc); return c}
-        } else {fmt.Println("DIV arg2 needs to be of type ARG in line",c.pc); return c}
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_div := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+                new_b.Cores[core_index].Code[r_val].Args[arg_num].Val /= to_div
+            } else {fmt.Println("DIV arg1 needs to be of type ARG in line",c.Pc); panic("")}
+        } else {fmt.Println("DIV arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case MOV:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_mov:= c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                new_b.cores[core_index].code[r_val].args[arg_num].val = to_mov
-            } else {fmt.Println("Can't MOV command to arg in line",c.pc); return c}
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_mov:= c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+                new_b.Cores[core_index].Code[r_val].Args[arg_num].Val = to_mov
+            } else {fmt.Println("Can't MOV command to arg in line",c.Pc); panic("")}
         } else {
-            if val_type1,_,_,to_mov,_:= c.eval_arg(instr.args[0], b); val_type1=="CMD" {
-                new_b.cores[core_index].code[r_val] = to_mov
-            } else {fmt.Println("Can't MOV arg to command in line",c.pc); return c}
+            if val_type1,_,_,to_mov,_:= c.eval_arg(instr.Args[0], b); val_type1=="CMD" {
+                new_b.Cores[core_index].Code[r_val] = to_mov
+            } else {fmt.Println("Can't MOV arg to command in line",c.Pc); panic("")}
         }
     case JMP:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_jmp:= c.eval_arg(instr.args[0], b); val_type1=="ARG" {
-                if new_b.cores[core_index].code[r_val].args[arg_num].val!=0 {c.pc = to_jmp-1}
-            } else {fmt.Println("can't jump (set pc to) a command"); return c}
-        } else {fmt.Println("can't read command as condition for jump"); return c}
+        if val_type1,arg_num,core_index,_,_ := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+            if val_type2,_,_,_,to_jmp:= c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+                if b.Cores[core_index].Code[r_val].Args[arg_num].Val!=0 {c.Pc = to_jmp-1}
+            } else {fmt.Println("can't jump (set pc to) a command"); panic("")}
+        } else {fmt.Println("can't read command as condition for jump"); panic("")}
     default:
-        return c
+        panic("unknown command")
     }
-    c.pc = (c.pc+1)%len(c.code)
-    return c
+    new_b.Cores[c.This].Pc = (c.Pc+1)%len(c.Code)
 }
 
 type board struct { //the whole board with multiple cores on it
-    cores []core
+    Cores []core
 }
 
 func (b *board) run() { //lets every core execute it's next instruction
-    fmt.Println(b)
-    new_b := *b
-    for i, c := range b.cores {
-        new_b.cores[i] = c.tick(&new_b,b)
-        time.Sleep(500*time.Millisecond)
+    new_b := board{}
+    Clone(b,&new_b)
+    for i, c := range b.Cores {
+        if i <= 1 {fmt.Print(b.Cores[i], " :: ")}
+        c.tick(&new_b,b)
+        b.Cores[i].Pc = new_b.Cores[i].Pc
     }
-    *b = new_b
+    fmt.Println("\n")
+    time.Sleep(500*time.Millisecond)
+    Clone(&new_b,b)
 }
 
-func build_board() (new_b board) { //builds a board from a string
-    arg0 := arg{"",1}
-    arg1 := arg{"^'",0}
-    arg2 := arg{"v'",0}
-    args1 := []arg{arg0,arg1}
-    args2 := []arg{arg0,arg2}
-    cmd1 := cmd{cmd_ids["ADD"],args1}
-    cmd2 := cmd{cmd_ids["ADD"],args2}
-    code1 := []cmd{cmd1}
-    code2 := []cmd{cmd2}
-    core1 := core{code1,0,1,0,0,0,0}
-    core2 := core{code2,1,1,1,0,1,0}
-    cores1 := []core{core1,core2}
-    return board{cores1}
+func code_to_codemap(source string, loc int) map[int][]cmd {
+    code_map := make(map[int][]cmd)
+    for j, nod_cod := range strings.Split(strings.TrimSpace(source), "@")[1:] {
+        temp_code := make([]cmd, loc)
+        for i:=0; i < loc; i++ {
+            temp_code[i] = cmd{7,[]arg{arg{"",1},arg{"",0}}}
+        }
+        if len(strings.Split(strings.TrimSpace(nod_cod), "\n"))<=1 {continue}
+        for i, val := range strings.Split(strings.Trim(nod_cod[1:], "\n"),"\n") {
+            if i>loc {
+                panic("too many lines of code per node in source file")
+            }
+            cmd_string := strings.Split(val, " ")
+            temp_cmd := cmd{cmd_ids[cmd_string[0]],[]arg{arg{"",0},arg{"",0}}}
+            if cmd_arg1_val, err := strconv.Atoi(cmd_string[2]); err == nil {
+                temp_cmd.Args[0] = arg{cmd_string[1],cmd_arg1_val}
+            } else {fmt.Println("node:",j,"line:",i,"->"); panic("wrong arg1 in source")}
+            if cmd_arg2_val, err := strconv.Atoi(cmd_string[4]); err == nil {
+                temp_cmd.Args[1] = arg{cmd_string[3],cmd_arg2_val}
+            } else {fmt.Println("node:",j,"line:",i,"->"); panic("wrong arg2 in source")}
+            temp_code[i] = temp_cmd
+        }
+        code_map[j] = temp_code
+    }
+    return code_map
+}
+
+func build_board(source string) (new_b board) { //builds a board from a string
+    loc := 2
+    code_map := code_to_codemap(source, loc)
+    new_b.Cores = make([]core,6)
+    for i:=0; i < 6; i++ {
+        if i<3 {
+            if i<1 {
+                new_b.Cores[i] = core{code_map[i],0,i,(6+i-3),(i+1)%6,(i+3)%6,(6+i-1)}
+            } else {new_b.Cores[i] = core{code_map[i],0,i,(6+i-3),(i+1)%6,(i+3)%6,(i-1)}}
+        } else {new_b.Cores[i] = core{code_map[i],0,i,(i-3),(i+1)%6,(i+3)%6,(i-1)}}
+    }
+    return new_b
 }
 
 func main() {
-    testboard := build_board()
+    source, err := ioutil.ReadFile(os.Args[1]);
+    if err != nil {
+        panic(err)
+    }
+    testboard := build_board(string(source))
     for {
         testboard.run()
     }
