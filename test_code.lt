@@ -1,0 +1,34 @@
+HEAD:
+name = Level 1
+description = Print weird numbers, similar to fibonacci
+loc = 4
+
+LAYOUT:
+wrap = xy
+width = 2
+height = 2
+
+CODE:
+*0
+ADD 1 'v1
+OUT 1 '@0
+NOP 0 0
+NOP 0 0
+
+*1
+OUT 1 '@3
+NOP 0 0
+NOP 0 0
+ADD 1 '<0
+
+*2
+NOP 0 0
+ADD 1 '>2
+OUT 1 '@1
+NOP 0 0
+
+*3
+NOP 0 0
+NOP 0 0
+ADD 1 '^3
+OUT 1 '@2

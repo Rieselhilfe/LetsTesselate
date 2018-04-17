@@ -12,7 +12,7 @@ import (
     "regexp"
 )
 
-const NOP,NEG,ADD,SUB,MUL,DIV,MOV,JMP,OUT = 0,1,2,3,4,5,6,7,8
+const NOP,NEG,ADD,SUB,MUL,DIV,MOV,JMP,OUT,AND,IOR,XOR = 0,1,2,3,4,5,6,7,8,9,10,11
 const AAT,NR1,NR2,UPP,RGT,DWN,LFT = '@','\'','"','^','>','v','<'
 var cycles = 0
 
@@ -68,9 +68,12 @@ type core struct { //one core, containing a program out of commands
     Left int
 }
 
-func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, instr cmd, val int) { //evaluates prefixes
+func (c *core) eval_arg(command_pos int, arg_pos int, b *board) (val_type string, arg int, addr int, instr cmd, val int) { //evaluates prefixes
     val_type = "ARG"
+    exp := c.Code[command_pos].Args[arg_pos]
     val = exp.Val
+    addr = c.This
+    arg = arg_pos
     for _, p := range exp.Prefs {
         if val_type == "ARG" {
             switch p {
@@ -95,7 +98,7 @@ func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, 
                 instr = b.Cores[addr].Code[val]
                 val_type = "CMD"
             default:
-                //panic("warning: pref"+strconv.QuoteRune(p)+"called with type ARG")
+                panic("warning: pref"+strconv.QuoteRune(p)+"called with type ARG")
                 return
             }
         } else if val_type == "CMD" {
@@ -113,7 +116,7 @@ func (c *core) eval_arg(exp arg, b *board) (val_type string, arg int, addr int, 
                     val_type = "ARG"
                 } else {panic("addr under 0")}
             default:
-                //panic("warning: pref"+strconv.QuoteRune(p)+"called with false type ADDR")
+                panic("warning: pref"+strconv.QuoteRune(p)+"called with false type ADDR")
                 return
             }
         } else {
@@ -128,7 +131,7 @@ func (c core) tick(new_b *board, b *board) { //executes the current instruction
     switch instr := c.Code[c.Pc]; instr.Id {
     case NOP:
     case NEG:
-        if val_type,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type=="ARG" {
+        if val_type,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 1, b); val_type=="ARG" {
             if b.Cores[core_index].Code[r_val].Args[arg_num].Val > 0 {
                 new_b.Cores[core_index].Code[r_val].Args[arg_num].Val = 0
             } else {
@@ -136,48 +139,48 @@ func (c core) tick(new_b *board, b *board) { //executes the current instruction
             }
         } else {fmt.Println("NEG arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case ADD:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_add := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_add := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
                 new_b.Cores[core_index].Code[r_val].Args[arg_num].Val += to_add
             } else {fmt.Println("ADD arg1 needs to be of type ARG in line",c.Pc); panic("")}
         } else {fmt.Println("ADD arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case SUB:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_sub := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_sub := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
                 new_b.Cores[core_index].Code[r_val].Args[arg_num].Val -= to_sub
             } else {fmt.Println("SUB arg1 needs to be of type ARG in line",c.Pc); panic("")}
         } else {fmt.Println("SUB arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case MUL:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_mul := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_mul := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
                 new_b.Cores[core_index].Code[r_val].Args[arg_num].Val *= to_mul
             } else {fmt.Println("MUL arg1 needs to be of type ARG in line",c.Pc); panic("")}
         } else {fmt.Println("MUL arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case DIV:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_div := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_div := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
                 new_b.Cores[core_index].Code[r_val].Args[arg_num].Val /= to_div
             } else {fmt.Println("DIV arg1 needs to be of type ARG in line",c.Pc); panic("")}
         } else {fmt.Println("DIV arg2 needs to be of type ARG in line",c.Pc); panic("")}
     case MOV:
-        if val_type2,arg_num,core_index,_,_ := c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
-            if val_type1,_,_,_,to_mov:= c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
+        if val_type2,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
+            if val_type1,_,_,_,to_mov:= c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
                 new_b.Cores[core_index].Code[r_val].Args[arg_num].Val = to_mov
             } else {fmt.Println("Can't MOV command to arg in line",c.Pc); panic("")}
         } else {
-            if val_type1,_,_,to_mov,_:= c.eval_arg(instr.Args[0], b); val_type1=="CMD" {
+            if val_type1,_,_,to_mov,_:= c.eval_arg(c.Pc, 0, b); val_type1=="CMD" {
                 new_b.Cores[core_index].Code[r_val] = to_mov
             } else {fmt.Println("Can't MOV arg to command in line",c.Pc); panic("")}
         }
     case JMP:
-        if val_type1,arg_num,core_index,_,_ := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
-            if val_type2,_,_,_,to_jmp:= c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+        if val_type1,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
+            if val_type2,_,_,_,to_jmp:= c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
                 if b.Cores[core_index].Code[r_val].Args[arg_num].Val!=0 {c.Pc = int(to_jmp-1)}
             } else {fmt.Println("can't jump (set pc to) a command"); panic("")}
         } else {fmt.Println("can't read command as condition for jump"); panic("")}
     case OUT:
-        if val_type1,arg_num,core_index,_,_ := c.eval_arg(instr.Args[0], b); val_type1=="ARG" {
-            if val_type2,_,_,_,to_print:= c.eval_arg(instr.Args[1], b); val_type2=="ARG" {
+        if val_type1,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
+            if val_type2,_,_,_,to_print:= c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
                 if b.Cores[core_index].Code[r_val].Args[arg_num].Val!=0 {
                     fmt.Println("t:",cycles,"n:",c.This,"m:",to_print)
                 }
@@ -294,18 +297,19 @@ func build_board(source string) (new_b board) { //builds a board from a string
         value := strings.TrimSpace(strings.Split(property, "=")[1])
         switch option {
         case "name":
-            fmt.Println(value)
+            fmt.Println(value,"-")
         case "description":
             fmt.Println(value)
         case "loc":
             loc, _ = strconv.Atoi(value)
         }
     }
+    fmt.Println("\nOutput:\n")
     code_map := code_to_codemap(source_split[1], loc)
     new_b.Cores = code_to_layout(strings.Split(source_split[0],"LAYOUT:")[1], code_map)
-    for _,val := range new_b.Cores { //DEBUGGING
-        fmt.Println(val)
-    }
+    // for _,val := range new_b.Cores { //DEBUGGING
+    //     fmt.Println(val)
+    // }
     return new_b
 }
 
