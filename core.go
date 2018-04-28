@@ -10,6 +10,7 @@ import (
     "io/ioutil"
     "os"
     "regexp"
+    // "github.com/fogleman/gg"
 )
 
 const NOP,NEG,ADD,SUB,MUL,DIV,MOV,JMP,OUT,AND,IOR,XOR = 0,1,2,3,4,5,6,7,8,9,10,11
@@ -314,6 +315,9 @@ func build_board(source string) (new_b board) { //builds a board from a string
 }
 
 func main() {
+    if len(os.Args)<=1 {
+        panic("No input file given.")
+    }
     source, err := ioutil.ReadFile(os.Args[1])
     if err != nil {
         panic(err)
