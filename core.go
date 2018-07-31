@@ -4,18 +4,52 @@ import (
     "fmt"
     "strings"
     "strconv"
-    "time"
+    // "time"
     "encoding/gob"
     "bytes"
     "io/ioutil"
     "os"
     "regexp"
-    // "github.com/fogleman/gg"
+    "github.com/gen2brain/raylib-go/raylib"
 )
 
-const NOP,NEG,ADD,SUB,MUL,DIV,MOV,JMP,OUT,AND,IOR,XOR = 0,1,2,3,4,5,6,7,8,9,10,11
-const AAT,NR1,NR2,UPP,RGT,DWN,LFT = '@','\'','"','^','>','v','<'
-var cycles = 0
+const (
+    screen_width = 800
+	screen_height = 600
+
+    NOP = 0
+    NEG = 1
+    ADD = 2
+    SUB = 3
+    MUL = 4
+    DIV = 5
+    MOV = 6
+    JMP = 7
+    OUT = 8
+    AND = 9
+    IOR = 10
+    XOR = 11
+
+    AAT = '@'
+    NR1 = '\''
+    NR2 = '"'
+    UPP = '^'
+    RGT = '>'
+    DWN = 'v'
+    LFT = '<'
+)
+
+var (
+    cycles = 0
+    text_mode = true
+)
+
+//BACKEND
+//BACKEND
+//BACKEND
+//BACKEND
+//BACKEND
+//BACKEND
 
 func mod(a int, b int) int {
     if a > 0 {
@@ -183,7 +217,7 @@ func (c core) tick(new_b *board, b *board) { //executes the current instruction
         if val_type1,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
             if val_type2,_,_,_,to_print:= c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
                 if b.Cores[core_index].Code[r_val].Args[arg_num].Val!=0 {
-                    fmt.Println("t:",cycles,"n:",c.This,"m:",to_print)
+                    fmt.Println("OUT: t:",cycles,"n:",c.This,"m:",to_print)
                 }
             } else {fmt.Println("can't jump (set pc to) a command"); panic("")}
         } else {fmt.Println("can't read command as condition for jump"); panic("")}
@@ -197,15 +231,17 @@ type board struct { //the whole board with multiple cores on it
     Cores []core
 }
 
-func (b *board) run() { //lets every core execute it's next instruction
+func (b *board) run(verbose bool) { //lets every core execute it's next instruction
     new_b := board{}
     Clone(b,&new_b)
     for i, c := range b.Cores {
-        // fmt.Println(c) //DEBUGGING
+        if verbose {
+            fmt.Println(c)
+        }
         c.tick(&new_b,b)
         b.Cores[i].Pc = new_b.Cores[i].Pc
     }
-    time.Sleep(250*time.Millisecond)
+    // time.Sleep(250*time.Millisecond)
     Clone(&new_b,b)
     cycles += 1
 }
@@ -314,21 +350,58 @@ func build_board(source string) (new_b board) { //builds a board from a string
     return new_b
 }
 
+//FRONTEND
+//FRONTEND
+//FRONTEND
+//FRONTEND
+//FRONTEND
+//FRONTEND
+
+type emu struct {
+	Pause bool
+	Ended bool
+    Speed int
+
+    backboard board
+}
+
+func (e emu) draw() {
+    core_width = screen_width/math.Sqrt(len(e.backboard.Cores))
+    if !e.Pause && !e.Ended {
+
+        raylib.DrawRectangle(0,0,100,100,raylib.Blue)
+    }
+}
+
+func (e emu) run() {
+    e.backboard.run(false)
+}
+
 func main() {
     if len(os.Args)<=1 {
         panic("No input file given.")
+    } else if len(os.Args) > 2 {
+        if os.Args[2]=="-v" {
+
+        }
     }
     source, err := ioutil.ReadFile(os.Args[1])
     if err != nil {
         panic(err)
     }
-    testboard := build_board(string(source))
-    for {
-        start := time.Now()
-        for i:=0;i<10000;i++ {
-            testboard.run()
+    emulator := emu{false, false, 1, build_board(string(source))}
+
+    raylib.InitWindow(screen_width, screen_height, "Let's Tesselate!")
+
+	raylib.SetTargetFPS(60)
+
+    for !raylib.WindowShouldClose() {
+        emulator.run()
+        if !text_mode {
+            raylib.BeginDrawing()
+            emulator.draw()
+    		raylib.EndDrawing()
         }
-        elapsed := time.Since(start)
-        fmt.Println(elapsed)
     }
+    raylib.CloseWindow()
 }

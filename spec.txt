@@ -22,4 +22,5 @@ SUB - subtrahiert arg1 von arg2 (ergebnis bei arg2)
 MUL - multipliziert arg1 und arg2 (ergebnis bei arg2)
 DIV - dividiert ganzzahlig arg1 von arg2 (ergebnis bei arg2)
 MOV - schreibt arg1 an arg2 Stelle
-JMP - Springt wenn arg2 stimmt nach arg1
+JMP - Springt wenn arg1 stimmt nach arg2
+OUT - printet arg2 wenn arg1
