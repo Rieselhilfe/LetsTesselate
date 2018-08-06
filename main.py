@@ -3,10 +3,56 @@ import random
 import math
 import time
 
-CLEAR_COLOR = (30,30,55)
 MENU_STATE = 0
 GAME_STATE = 1
 OVER_STATE = 2
+
+def hex_to_rgb(hex):
+	return tuple(int(hex.lstrip('#')[i:i+2], 16) for i in (0, 2 ,4))
+
+def num_to_cmd(num):
+	if num == 0:
+		return "NOP"
+	if num == 1:
+		return "NEG"
+	if num == 2:
+		return "ADD"
+	if num == 3:
+		return "SUB"
+	if num == 4:
+		return "MUL"
+	if num == 5:
+		return "DIV"
+	if num == 6:
+		return "MOV"
+	if num == 7:
+		return "JMP"
+	if num == 8:
+		return "OUT"
+	if num == 9:
+		return "AND"
+	if num == 10:
+		return "IOR"
+	if num == 11:
+		return "XOR"
+	else:
+		return "???"
+
+def dirsymb_to_arrowpos(symb, tile_size_x, tile_size_y):
+	dir = None
+	for i in symb:
+		if i=="^":
+			dir = (tile_size_x/2, 5)
+		elif i==">":
+			dir = (tile_size_x-5, tile_size_y/2)
+		elif i=="v":
+			dir = (tile_size_x/2, tile_size_y-5)
+		elif i=="<":
+			dir = (5, tile_size_y/2)
+		else:
+			continue
+		break
+	return dir
 
 def to_time(time):
 	minutes = str(int(time/1000/60))
@@ -21,31 +67,39 @@ def to_time(time):
 	return str(minutes)+":"+str(seconds)+":"+str(milliseconds)
 
 pygame.init()
-size = (1000,600)
+size = (920,920)
 screen = pygame.display.set_mode((size))
-pygame.display.set_caption("Let's Tesselate! - A fictional tesselated multicore system")
+pygame.display.set_caption("Let's Tesselate!")
 pygame.mouse.set_visible(0)
-game_font = pygame.font.Font("font.ttf", 35)
-highscore_font = pygame.font.Font("font.ttf", 25)
+big_font = pygame.font.Font("font.ttf", 35)
+small_font = pygame.font.Font("font.ttf", 25)
 clock = pygame.time.Clock()
-highscore_file = "highscores"
-screen.fill(CLEAR_COLOR)
 rand = random.randrange
 
-done = False
-state = MENU_STATE
-go_text = None
-hs_text = None
-highscore_text = None
-highscores = {}
-with open(highscore_file) as highscore_data:
-	for line in highscore_data:
-		score_difficulty = line.split()[0]
-		score = line.split()[1]
-		highscores[int(difficulty)] = int(score)
-time_elapsed = 0
+line=""
+while line!="RENDER_INFO_BEGIN":
+	line = input()
 
+width, height, inactive_color = [x for x in input().split()]
+width, height = int(width), int(height)
+tile_size_x = size[0]/width
+tile_size_y = size[1]/height
+inactive_color = hex_to_rgb(inactive_color)
+
+screen.fill(inactive_color)
+
+cmd_render_dict = {}
+for i in range(13):
+	cmd_render = small_font.render(num_to_cmd(i), 1, (255,255,255))
+	mid_x, mid_y = (i/2 for i in cmd_render.get_size())
+	cmd_render_dict[num_to_cmd(i)] = (cmd_render, (mid_x, mid_y))
+
+single_steps = True
+next_step = False
+done = False
+time_elapsed = 0
 while not done:
+	#keystrokes
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:
 			done = True
@@ -57,46 +111,54 @@ while not done:
 				filename=str(rand(10000000))+'.png'
 				print("saved as ", (filename))
 				pygame.image.save(screen,filename)
+			elif event.key == pygame.K_p:
+				single_steps = not single_steps
+				next_step = False
 			elif event.key == pygame.K_RETURN:
-				if state == OVER_STATE:
-					done = False
-					state = GAME_STATE
-					player1 = Player()
-					bubbles = [Bubble()]
-					boni = [Bonus()]
-					points = 0
-					go_text = None
-					hs_text = None
-					time_elapsed = 0
-				elif state == MENU_STATE:
-					state = GAME_STATE
-					time_elapsed = 0
-
-			else:
-				if state == GAME_STATE:
-					player1.change_rot()
-				elif state == MENU_STATE:
-					state = GAME_STATE
-					time_elapsed = 0
-
+				if single_steps:
+					next_step = True
+	#pygame stuff
 	clock.tick(60)
-	screen.fill(CLEAR_COLOR)
-	if state == MENU_STATE:
-		draw_menu()
-		player1.draw()
-		player1.move()
-	elif state == GAME_STATE:
-		player1.draw()
-		if not player1.move():
-			state = OVER_STATE
-		do_bubbles()
-		if check_collision(player1):
-			state = OVER_STATE
-	elif state == OVER_STATE:
-		do_bubbles()
-		if not go_text:
-			go_text, hs_text = game_over()
-		screen.blit(go_text, (size[0]/2-go_text.get_rect().width/2,size[1]/2-go_text.get_rect().height/2))
-		screen.blit(hs_text, (size[0]/2-hs_text.get_rect().width/2,size[1]-size[1]/4-hs_text.get_rect().height/2))
-	pygame.display.flip()
+	screen.fill(inactive_color)
+	#graphics 1 - background for inactives
+
+	#inputtext
+	if (not single_steps) or (single_steps and next_step):
+		line = input()
+		while line != "###":
+			if not line or line == "RENDER_INFO_END":
+				done = True
+				break
+			line = line.split()
+			if line[0] == "OUT:":
+				pass
+			else:
+				core_num = int(line[0])
+				core_x = int(core_num%width)*tile_size_x
+				core_y = int(core_num/height)*tile_size_y
+				core_col = line[1]
+				core_col = hex_to_rgb(core_col)
+				command = int(line[2][1])
+				command = num_to_cmd(command)
+				command_dir = line[5]
+				arrowpos = dirsymb_to_arrowpos(command_dir, tile_size_x, tile_size_y)
+				# print(command_dir)
+				pygame.draw.rect(screen, core_col, (core_x,core_y,tile_size_x,tile_size_y))
+				text_x = core_x+tile_size_x/2-cmd_render_dict[command][1][0]
+				text_y = core_y+tile_size_y/2-cmd_render_dict[command][1][1]
+				if arrowpos:
+					pygame.draw.circle(screen, tuple((x-50)%255 for x in core_col), (int(core_x+arrowpos[0]),int(core_y+arrowpos[1])),7)
+				screen.blit(cmd_render_dict[command][0], (text_x,text_y))
+
+			line = input()
+		#graphics 3 - grid
+		for x in range(width):
+			pygame.draw.line(screen, (0,0,0), (x*tile_size_x,0), (x*tile_size_x,size[1]))
+		for y in range(height):
+			pygame.draw.line(screen, (0,0,0), (0,y*tile_size_y), (size[0],y*tile_size_y))
+		#pygame stuff again
+		pygame.display.flip()
+		if next_step:
+			next_step = False
+
 	time_elapsed+=clock.get_time()
