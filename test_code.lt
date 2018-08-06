@@ -1,13 +1,16 @@
 HEAD:
 name = Level 1
 description = Print weird numbers, similar to fibonacci
-loc = 10
+loc = 5
 
 LAYOUT:
 wrap = xy
-width = 5
-height = 5
+width = 2
+height = 1
 
 CODE:
 *0
-MOV @0 >0
+MOV @'@2 >'@2
+SUB 1 '@2
+JGZ 3 0
+JGZ 1 3

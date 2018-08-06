@@ -22,11 +22,12 @@ const (
     MUL = 4
     DIV = 5
     MOV = 6
-    JMP = 7
-    OUT = 8
-    AND = 9
-    IOR = 10
-    XOR = 11
+    JGZ = 7
+    JEZ = 8
+    OUT = 9
+    AND = 10
+    IOR = 11
+    XOR = 12
 
     AAT = '@'
     NR1 = '\''
@@ -84,7 +85,8 @@ var cmd_ids = map[string]byte{
     "MUL": MUL,
     "DIV": DIV,
     "MOV": MOV,
-    "JMP": JMP,
+    "JGZ": JGZ,
+    "JEZ": JEZ,
     "OUT": OUT,
 }
 
@@ -213,16 +215,22 @@ func (c core) tick(new_b *board, b *board) { //executes the current instruction
         } else {
             if val_type1,_,_,to_mov,_:= c.eval_arg(c.Pc, 0, b); val_type1=="CMD" {
                 new_b.Cores[core_index].Code[r_val] = to_mov
-                // fmt.Println(new_b.Cores[core_index].Code[r_val], to_mov)
-                if !new_b.Cores[core_index].Active {
+                new_b.Cores[core_index].Color = c.Color //transfer the color
+                if !new_b.Cores[core_index].Active { //activate the changed core
                     new_b.Cores[core_index].Active = true
                 }
             } else {fmt.Println("Can't MOV arg to command in line",c.Pc); panic("")}
         }
-    case JMP:
-        if val_type1,arg_num,core_index,_,_ := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
+    case JGZ:
+        if val_type1,_,_,_,to_check := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
             if val_type2,_,_,_,to_jmp:= c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
-                if b.Cores[core_index].Code[r_val].Args[arg_num].Val!=0 {c.Pc = int(to_jmp-1)}
+                if to_check>0 {c.Pc = int(to_jmp-1)}
+            } else {fmt.Println("can't jump (set pc to) a command"); panic("")}
+        } else {fmt.Println("can't read command as condition for jump"); panic("")}
+    case JEZ:
+        if val_type1,_,_,_,to_check := c.eval_arg(c.Pc, 0, b); val_type1=="ARG" {
+            if val_type2,_,_,_,to_jmp:= c.eval_arg(c.Pc, 1, b); val_type2=="ARG" {
+                if to_check==0 {c.Pc = int(to_jmp-1)}
             } else {fmt.Println("can't jump (set pc to) a command"); panic("")}
         } else {fmt.Println("can't read command as condition for jump"); panic("")}
     case OUT:
@@ -244,16 +252,18 @@ type board struct { //the whole board with multiple cores on it
 }
 
 func (b *board) run(verbose bool) { //lets every core execute it's next instruction
+    for i,core := range b.Cores {
+        fmt.Println("--DEBUG--",i,core.Code)
+    }
     new_b := board{}
     deepcopy_board(b,&new_b) //bottleneck 1
-    // fmt.Println(new_b,"\n",*b,"\n")
     for i, c := range b.Cores {
-        if true {
+        if c.Active {
             if verbose {
                 fmt.Println(i,c.Color,c.Code[c.Pc])
             }
             c.tick(&new_b,b)
-            // b.Cores[i].Pc = new_b.Cores[i].Pc
+            b.Cores[i].Pc = new_b.Cores[i].Pc
         }
     }
     if verbose {
@@ -282,7 +292,7 @@ func code_to_codemap(source string, loc int) map[int][]cmd {
                 panic("too many lines of code per node in source file")
             }
             cmd_string := strings.Split(val, " ")
-            numeric := regexp.MustCompile(`[0-9]`)
+            numeric := regexp.MustCompile(`[-0-9]`)
             temp_cmd := cmd{cmd_ids[cmd_string[0]],[]arg{arg{"",0},arg{"",0}}}
             for k:=1; k<=2; k++ {
                 arg_num_pos := numeric.FindIndex([]byte(cmd_string[k]))[0]
@@ -352,9 +362,6 @@ func code_to_layout(lt string, code_map map[int][]cmd, verbose bool) (cores []co
     if verbose {
         fmt.Println(width, height, INACTIVE_COLOR)
     }
-    // for i,core := range cores {
-    //     fmt.Println(i,core)
-    // }
     return
 }
 
@@ -390,19 +397,6 @@ func build_board(source string, verbose bool) (new_b board) { //builds a board f
 //FRONTEND
 //FRONTEND
 
-type emu struct {
-	Pause bool
-	Ended bool
-    Speed int
-
-    backboard board
-}
-
-
-func (e *emu) run(verbose bool) {
-    e.backboard.run(verbose)
-}
-
 func main() {
     if len(os.Args)<=1 {
         panic("No input file given.")
@@ -415,18 +409,12 @@ func main() {
     if err != nil {
         panic(err)
     }
-    // a := build_board(string(source), text_mode)
-    // b := board{}
-    // deepcopy_board(&a,&b)
-    // fmt.Println(a,"\n",b,"\n")
-    // b.Cores[0].Code[0].Id = 9
-    // fmt.Println(a,"\n",b,"\n")
-    // deepcopy_board(&b,&a)
-    // fmt.Println(a,"\n",b,"\n")
-    emulator := emu{false, false, 1, build_board(string(source), text_mode)}
+    test_board := build_board(string(source), text_mode)
     start := time.Now()
-    for x:=0; x<10; x++ {
-        emulator.run(text_mode)
+    val_type,_,core_index,_,val := test_board.Cores[0].eval_arg(0,1,&test_board)
+    fmt.Println("--DEBUG--",val_type,val,core_index,test_board.Cores[0].Code[0].Args[1])
+    for x:=0; x<15; x++ {
+        test_board.run(text_mode)
     }
     elapsed := time.Since(start)
     fmt.Println("RENDER_INFO_END")

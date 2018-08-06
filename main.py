@@ -13,27 +13,29 @@ def hex_to_rgb(hex):
 def num_to_cmd(num):
 	if num == 0:
 		return "NOP"
-	if num == 1:
+	elif num == 1:
 		return "NEG"
-	if num == 2:
+	elif num == 2:
 		return "ADD"
-	if num == 3:
+	elif num == 3:
 		return "SUB"
-	if num == 4:
+	elif num == 4:
 		return "MUL"
-	if num == 5:
+	elif num == 5:
 		return "DIV"
-	if num == 6:
+	elif num == 6:
 		return "MOV"
-	if num == 7:
-		return "JMP"
-	if num == 8:
+	elif num == 7:
+		return "JGZ"
+	elif num == 8:
+		return "JEZ"
+	elif num == 9:
 		return "OUT"
-	if num == 9:
+	elif num == 10:
 		return "AND"
-	if num == 10:
+	elif num == 11:
 		return "IOR"
-	if num == 11:
+	elif num == 12:
 		return "XOR"
 	else:
 		return "???"
